@@ -1,4 +1,4 @@
-ons.ready(function() {
+var onDeviceReady = function() {
   // Firebaseの初期化
   var config = {
     apiKey: "API_KEY",
@@ -11,84 +11,78 @@ ons.ready(function() {
   
   // Vueの処理 
 	var vm = new Vue({
-	  el: '#app',
+	  el: '#app',  // マウントするDOM
 	  // 初期データの設定
 	  data: {
 	  	user: {
 	  		isLoggedIn: false,
 	  		mailAddress: "",
-	  		password: ""
+	  		password: "",
 	  	},
-	  	times: []
+	  	times: []  // 追加
 	  },
 	  // デプロイ完了時のイベント
 	  created: function() {
-	  	// ユーザのステータスが変わったら通知
 	  	var me = this;
 	  	firebase.auth().onAuthStateChanged(function(user) {
 	  		me.user.isLoggedIn = (user !== null);
 	  	});
-	  	
 	  	var data = firebase.database().ref('times/');
-	  	data.on('value', function(times) {
-	  		me.times = [];
-	  		times.forEach(function(time) {
-	  			me.times.push({
-	  				key: time.key,
-	  				time: time.val().time
-	  			})
-	  		});
-	  	});
-	  	data.on('child_added', function(time) {
-	  		var result = me.times.filter(function(item) {
-	  			return item.key == time.key;
-	  		})
-	  		if (result) {
-	  			return;
-	  		}
-  			me.times.push({
-  				key: time.key,
-  				time: time.val().time
-  			})
-	  	});
+			data.on('value', function(times) {
+				me.times = [];
+				times.forEach(function(time) {
+					me.times.push({
+						key: time.key,
+						time: time.val().time
+					})
+				});
+			});
+			
+			data.on('child_added', function(time) {
+				var result = me.times.filter(function(item) {
+					return item.key == time.key;
+				})
+				if (result) {
+					return;
+				}
+				me.times.push({
+					key: time.key,
+					time: time.val().time
+				})
+			});
 	  },
-	  
 	  // テンプレート
-	  template: `
-	  <v-ons-page>
-	    <v-ons-toolbar>
-	      <div class="center"> Firebase認証 </div>
-	    </v-ons-toolbar>
+	  template: `<div>
+	    <div class="center"> Firebase認証 </div>
 	    <section style="margin: 10px;" v-if="user.isLoggedIn">
 	    	<p>{{ user.mailAddress }}</p>
 		    <section style="margin: 10px;">
-		    	<ons-button @click="add">データ追加</ons-button>
-		      <ons-button @click="logout">ログアウト</ons-button>
+			    <button @click="add">データ追加</button>
+		      <button @click="logout">ログアウト</button>
 		    </section>
-		    <section style="margin: 10px;">
-		    	<ons-list>
-		    		<ons-list-header>リスト</ons-list-header>
-		    		<ons-list-item v-for="item in times">
-		    			<div class="center">{{ item.time }}</div>
-		    		</ons-list-item>
-		    	</ons-list>
-		    </section>
+		    <!-- データを表示するリストを追加 -->
+				<section style="margin: 10px;">
+					<div>リスト</div>
+					<ul v-for="item in times">
+						<li>{{ item.time }}</li>
+					</ul>
+				</section>
 	    </section>
 			<section v-else style="margin: 10px;">
 	      <p>メールアドレス</p>
 	      <p>
-	        <v-ons-input v-ons-model="user.mailAddress" placeholder="メールアドレス"></v-ons-input>
+	        <input v-model="user.mailAddress" placeholder="メールアドレス" />
 	      </p>
 	      <p>パスワード</p>
 	      <p>
-	        <v-ons-input v-ons-model="user.password" placeholder="パスワード" type="password"></v-ons-input>
+	        <input v-model="user.password" placeholder="パスワード" type="password" />
 	      </p>
-	      <ons-button @click="register">新規登録</ons-button>
-	      <ons-button @click="login">ログイン</ons-button>
+	      <button @click="register">新規登録</button>
+	      <button @click="login">ログイン</button>
 	    </section>
-	  </v-ons-page>`,
+		</div>`,
 	  // イベント処理
-	  methods: {
+    methods: {
 	  	// 登録処理
 	  	register: function() {
 	  		firebase.auth().createUserWithEmailAndPassword(this.user.mailAddress, this.user.password)
@@ -107,17 +101,21 @@ ons.ready(function() {
 	  	logout: function() {
 	  		firebase.auth().signOut();
 	  	},
-	  	// データの追加
-	  	add: function() {
-	  		var d = new Date;
-	  		var message = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
-	  		firebase.database().ref('times/').push({
-	  			time: message
-	  		})
-	  		.catch(function(error) {
-	  			alert(error.message)
-	  		})
-	  	}
+	  	// データを追加する
+			add: function() {
+				// 登録するメッセージを作成
+				var d = new Date;
+				var message = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
+				
+				firebase.database().ref('times/').push({
+					time: message
+				})
+				.catch(function(error) {
+					alert(error.message)
+				})
+			},
 	  }
 	});
-});
+};
+
+document.addEventListener(window.cordova ?"deviceready" : "DOMContentLoaded", onDeviceReady, false);
