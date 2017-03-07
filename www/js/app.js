@@ -7,115 +7,57 @@ var onDeviceReady = function() {
     storageBucket: "STORAGE_BUCKET",
     messagingSenderId: "MESSAGING_SENDER_ID"
   };
-  firebase.initializeApp(config);
-  
-  // Vueの処理 
+	firebase.initializeApp(config);
+	
+	// Vueの処理
 	var vm = new Vue({
 	  el: '#app',  // マウントするDOM
 	  // 初期データの設定
 	  data: {
-	  	user: {
-	  		isLoggedIn: false,
-	  		mailAddress: "",
-	  		password: "",
-	  	},
-	  	times: []  // 追加
-	  },
-	  // デプロイ完了時のイベント
-	  created: function() {
-	  	var me = this;
-	  	firebase.auth().onAuthStateChanged(function(user) {
-	  		me.user.isLoggedIn = (user !== null);
-	  	});
-	  	var data = firebase.database().ref('times/');
-			data.on('value', function(times) {
-				me.times = [];
-				times.forEach(function(time) {
-					me.times.push({
-						key: time.key,
-						time: time.val().time
-					})
-				});
-			});
-			
-			data.on('child_added', function(time) {
-				var result = me.times.filter(function(item) {
-					return item.key == time.key;
-				})
-				if (result) {
-					return;
-				}
-				me.times.push({
-					key: time.key,
-					time: time.val().time
-				})
-			});
-	  },
+		  photo: null,
+		  photo_url: null
+		},
+	    
 	  // テンプレート
-	  template: `<div>
-	    <div class="center"> Firebase認証 </div>
-	    <section style="margin: 10px;" v-if="user.isLoggedIn">
-	    	<p>{{ user.mailAddress }}</p>
-		    <section style="margin: 10px;">
-			    <button @click="add">データ追加</button>
-		      <button @click="logout">ログアウト</button>
-		    </section>
-		    <!-- データを表示するリストを追加 -->
-				<section style="margin: 10px;">
-					<div>リスト</div>
-					<ul v-for="item in times">
-						<li>{{ item.time }}</li>
-					</ul>
-				</section>
+	  template: `
+	  <div>
+      <div class="center"> Firebaseストレージ </div>
+	    <section style="margin: 10px;">
+	    	<input type="file" name="photo" @change="fileChange" accept="image/*" />
+	    	<button @click="upload">アップロード</button>
+	    	<div v-if="photo_url">
+	    		<div class="center">
+		    		<img :src="photo_url" width="80%" />
+		    	</div>
+	    	</div>
 	    </section>
-			<section v-else style="margin: 10px;">
-	      <p>メールアドレス</p>
-	      <p>
-	        <input v-model="user.mailAddress" placeholder="メールアドレス" />
-	      </p>
-	      <p>パスワード</p>
-	      <p>
-	        <input v-model="user.password" placeholder="パスワード" type="password" />
-	      </p>
-	      <button @click="register">新規登録</button>
-	      <button @click="login">ログイン</button>
-	    </section>
-		</div>`,
+	  </div>`,
+	  
 	  // イベント処理
-    methods: {
-	  	// 登録処理
-	  	register: function() {
-	  		firebase.auth().createUserWithEmailAndPassword(this.user.mailAddress, this.user.password)
-	  			.catch(function(error) {
-        		alert(error.message);
-	      	});
-	  	},
-	  	// ログイン処理
-	  	login: function() {
-	  		firebase.auth().signInWithEmailAndPassword(this.user.mailAddress, this.user.password)
-	  			.catch(function(error) {
-	  				alert(error.message);
-	      	});
-	  	},
-	  	// ログアウト処理
-	  	logout: function() {
-	  		firebase.auth().signOut();
-	  	},
-	  	// データを追加する
-			add: function() {
-				// 登録するメッセージを作成
-				var d = new Date;
-				var message = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
-				
-				firebase.database().ref('times/').push({
-					time: message
-				})
-				.catch(function(error) {
-					alert(error.message)
-				})
+	  methods: {
+	  	// ファイルを指定した時の処理
+	  	fileChange: function(e) {
+			  this.photo = e.target.files[0];
 			},
+	  	// 画像アップロード処理
+			upload: function() {
+			  var me = this;
+			  // ストレージオブジェクト作成
+			  var storageRef = firebase.storage().ref();
+			  // ファイルのパスを設定
+			  var mountainsRef = storageRef.child(`images/${this.photo.name}`);
+			  // ファイルを適用してファイルアップロード開始
+			  var uploadTask = mountainsRef.put(this.photo);
+			  // ステータスを監視
+			  uploadTask.on('state_changed', function(snapshot){
+			  }, function(err) {
+			    console.log(err);
+			  }, function() {
+			    // アップロード完了したら画像のURLを取得
+			    me.photo_url = uploadTask.snapshot.downloadURL;
+			  })
+			}
 	  }
 	});
 };
-
 document.addEventListener(window.cordova ?"deviceready" : "DOMContentLoaded", onDeviceReady, false);

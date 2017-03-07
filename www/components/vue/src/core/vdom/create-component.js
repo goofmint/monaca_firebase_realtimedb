@@ -1,11 +1,25 @@
 /* @flow */
 
 import VNode from './vnode'
-import { resolveConstructorOptions } from '../instance/init'
-import { activeInstance, callHook } from '../instance/lifecycle'
-import { resolveSlots } from '../instance/render'
 import { createElement } from './create-element'
-import { warn, isObject, hasOwn, hyphenate, validateProp } from '../util/index'
+import { resolveConstructorOptions } from '../instance/init'
+import { resolveSlots } from '../instance/render-helpers/resolve-slots'
+
+import {
+  warn,
+  isObject,
+  hasOwn,
+  hyphenate,
+  validateProp
+} from '../util/index'
+
+import {
+  callHook,
+  activeInstance,
+  updateChildComponent,
+  activateChildComponent,
+  deactivateChildComponent
+} from '../instance/lifecycle'
 
 const hooks = { init, prepatch, insert, destroy }
 const hooksToMerge = Object.keys(hooks)
@@ -56,6 +70,11 @@ export function createComponent (
   resolveConstructorOptions(Ctor)
 
   data = data || {}
+
+  // transform component v-model data into props & events
+  if (data.model) {
+    transformModel(Ctor.options, data)
+  }
 
   // extract props
   const propsData = extractProps(data, Ctor)
@@ -178,7 +197,8 @@ function prepatch (
 ) {
   const options = vnode.componentOptions
   const child = vnode.componentInstance = oldVnode.componentInstance
-  child._updateFromParent(
+  updateChildComponent(
+    child,
     options.propsData, // updated props
     options.listeners, // updated listeners
     vnode, // new parent vnode
@@ -192,8 +212,7 @@ function insert (vnode: MountedComponentVNode) {
     callHook(vnode.componentInstance, 'mounted')
   }
   if (vnode.data.keepAlive) {
-    vnode.componentInstance._inactive = false
-    callHook(vnode.componentInstance, 'activated')
+    activateChildComponent(vnode.componentInstance, true /* direct */)
   }
 }
 
@@ -202,8 +221,7 @@ function destroy (vnode: MountedComponentVNode) {
     if (!vnode.data.keepAlive) {
       vnode.componentInstance.$destroy()
     } else {
-      vnode.componentInstance._inactive = true
-      callHook(vnode.componentInstance, 'deactivated')
+      deactivateChildComponent(vnode.componentInstance, true /* direct */)
     }
   }
 }
@@ -318,5 +336,19 @@ function mergeHook (one: Function, two: Function): Function {
   return function (a, b, c, d) {
     one(a, b, c, d)
     two(a, b, c, d)
+  }
+}
+
+// transform component v-model info (value and callback) into
+// prop and event handler respectively.
+function transformModel (options, data: any) {
+  const prop = (options.model && options.model.prop) || 'value'
+  const event = (options.model && options.model.event) || 'input'
+  ;(data.props || (data.props = {}))[prop] = data.model.value
+  const on = data.on || (data.on = {})
+  if (on[event]) {
+    on[event] = [data.model.callback].concat(on[event])
+  } else {
+    on[event] = data.model.callback
   }
 }
