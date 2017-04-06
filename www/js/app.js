@@ -26,20 +26,28 @@ var onDeviceReady = function() {
 		created: function() {
 		  // ユーザのステータスが変わったら通知
 		  var me = this;
+		  var data = firebase.database().ref('times/');
+		  
 		  firebase.auth().onAuthStateChanged(function(user) {
 		    me.user.isLoggedIn = (user !== null);
+		  	if (user !== null) {
+					data.on('value', function(times) {
+						me.times = [];
+						times.forEach(function(time) {
+							me.times.push({
+								key: time.key,
+								time: time.val().time
+							})
+						});
+					});
+		  	}else{
+		  		data.off('value');
+		  	}
 		  });
-		  var data = firebase.database().ref('times/');
-			data.on('value', function(times) {
-				me.times = [];
-				times.forEach(function(time) {
-					me.times.push({
-						key: time.key,
-						time: time.val().time
-					})
-				});
-			});
+		  
+			
 		},
+
 	    
 	  // テンプレート
 		template: `
